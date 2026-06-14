@@ -24,6 +24,22 @@ add_task:
     due:
       required: false
       description: "Deadline as YYYY-MM-DD or ISO timestamp"
+    default_start_time:
+      required: false
+      description: "Default task start time as HH:MM"
+      example: "17:00"
+    default_end_time:
+      required: false
+      description: "Default task end time as HH:MM"
+      example: "17:30"
+    override_start_time:
+      required: false
+      description: "Optional instance-only start time override as HH:MM"
+      example: "18:00"
+    override_end_time:
+      required: false
+      description: "Optional instance-only end time override as HH:MM"
+      example: "18:30"
     early_bonus_enabled:
       required: false
       description: "Enable/disable early completion bonus without clearing configured values"
@@ -138,6 +154,22 @@ update_task:
     due:
       required: false
       description: "Deadline as YYYY-MM-DD or ISO timestamp"
+    default_start_time:
+      required: false
+      description: "Default task start time as HH:MM"
+      example: "17:00"
+    default_end_time:
+      required: false
+      description: "Default task end time as HH:MM"
+      example: "17:30"
+    override_start_time:
+      required: false
+      description: "Optional instance-only start time override as HH:MM. Empty clears it."
+      example: "18:00"
+    override_end_time:
+      required: false
+      description: "Optional instance-only end time override as HH:MM. Empty clears it."
+      example: "18:30"
     early_bonus_enabled:
       required: false
       description: "Enable/disable early completion bonus without clearing configured values"

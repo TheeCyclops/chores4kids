@@ -55,6 +55,10 @@ class Task:
     description: str = ""
     created: str = ""
     due: Optional[str] = None
+    default_start_time: Optional[str] = None
+    default_end_time: Optional[str] = None
+    override_start_time: Optional[str] = None
+    override_end_time: Optional[str] = None
     approved_at: Optional[str] = None
     icon: str = ""
     # Weekly repetition: 0=Mon .. 6=Sun (local time). If set, a fresh task is auto-created and assigned on those days.
@@ -436,6 +440,10 @@ class KidsChoresStore:
         points: int,
         description: str = "",
         due: Optional[str] = None,
+        default_start_time: Optional[str] = None,
+        default_end_time: Optional[str] = None,
+        override_start_time: Optional[str] = None,
+        override_end_time: Optional[str] = None,
         assigned_to: Optional[str] = None,
         repeat_days: Optional[list[int] | list[str]] = None,
         repeat_child_id: Optional[str] = None,
@@ -478,6 +486,10 @@ class KidsChoresStore:
             points=int(points),
             description=description.strip(),
             due=due,
+            default_start_time=self._normalize_hhmm(default_start_time),
+            default_end_time=self._normalize_hhmm(default_end_time),
+            override_start_time=self._normalize_hhmm(override_start_time),
+            override_end_time=self._normalize_hhmm(override_end_time),
             icon=(icon or "").strip(),
             repeat_template_id=(repeat_template_id or None),
         )
@@ -741,6 +753,8 @@ class KidsChoresStore:
                 description=getattr(template, "description", "") or "",
                 created=datetime.now(timezone.utc).isoformat(),
                 due=due_iso,
+                default_start_time=self._normalize_hhmm(getattr(template, "default_start_time", None)),
+                default_end_time=self._normalize_hhmm(getattr(template, "default_end_time", None)),
                 icon=getattr(template, "icon", "") or "",
                 repeat_template_id=template.id,
                 persist_until_completed=True,
@@ -782,6 +796,8 @@ class KidsChoresStore:
                 points=t.points,
                 description=t.description,
                 due=t.due,
+                default_start_time=getattr(t, "default_start_time", None),
+                default_end_time=getattr(t, "default_end_time", None),
                 assigned_to=child_id,
                 repeat_template_id=repeat_template_id,
                 icon=t.icon,
@@ -959,6 +975,8 @@ class KidsChoresStore:
         if status == STATUS_ASSIGNED:
             from datetime import datetime, timezone
             t.created = datetime.now(timezone.utc).isoformat()
+            t.override_start_time = None
+            t.override_end_time = None
             t.bonus_completed_ts = None
             t.bonus_approved = False
             t.bonus_approved_at = None
@@ -1112,6 +1130,8 @@ class KidsChoresStore:
                             description=getattr(template, "description", "") or "",
                             created=_dt.now(_tz.utc).isoformat(),
                             due=next_due,
+                            default_start_time=self._normalize_hhmm(getattr(template, "default_start_time", None)),
+                            default_end_time=self._normalize_hhmm(getattr(template, "default_end_time", None)),
                             icon=getattr(template, "icon", "") or "",
                             repeat_template_id=template.id,
                             persist_until_completed=True,
@@ -1236,6 +1256,10 @@ class KidsChoresStore:
         points: Optional[int] = None,
         description: Optional[str] = None,
         due: Optional[str] = None,
+        default_start_time: Optional[str] = None,
+        default_end_time: Optional[str] = None,
+        override_start_time: Optional[str] = None,
+        override_end_time: Optional[str] = None,
         early_bonus_enabled: Optional[bool] = None,
         early_bonus_days: Optional[int] = None,
         early_bonus_points: Optional[int] = None,
@@ -1272,6 +1296,14 @@ class KidsChoresStore:
             t.description = str(description).strip()
         if due is not None:
             t.due = str(due).strip() or None
+        if default_start_time is not None:
+            t.default_start_time = self._normalize_hhmm(default_start_time)
+        if default_end_time is not None:
+            t.default_end_time = self._normalize_hhmm(default_end_time)
+        if override_start_time is not None:
+            t.override_start_time = self._normalize_hhmm(override_start_time)
+        if override_end_time is not None:
+            t.override_end_time = self._normalize_hhmm(override_end_time)
         if early_bonus_enabled is not None:
             t.early_bonus_enabled = bool(early_bonus_enabled)
         if early_bonus_days is not None:
@@ -1348,6 +1380,8 @@ class KidsChoresStore:
                     inst.points = int(t.points)
                     inst.description = getattr(t, "description", "") or ""
                     inst.icon = getattr(t, "icon", "") or ""
+                    inst.default_start_time = self._normalize_hhmm(getattr(t, "default_start_time", None))
+                    inst.default_end_time = self._normalize_hhmm(getattr(t, "default_end_time", None))
                     inst.categories = list(getattr(t, "categories", []) or [])
                     inst.early_bonus_enabled = bool(getattr(t, "early_bonus_enabled", False))
                     inst.early_bonus_days = int(getattr(t, "early_bonus_days", 0) or 0)
@@ -1368,6 +1402,19 @@ class KidsChoresStore:
         except Exception:
             pass
         await self.async_save()
+
+    def _normalize_hhmm(self, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        match = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", text)
+        if not match:
+            return None
+        hour = int(match.group(1))
+        minute = int(match.group(2))
+        return f"{hour:02d}:{minute:02d}"
 
     async def daily_rollover(self):
         """Midnight housekeeping: start fresh each day.
