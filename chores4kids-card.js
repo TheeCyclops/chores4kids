@@ -2190,7 +2190,7 @@ class Chores4KidsDevCard extends LitElement {
 
 					<hr />
 					<h3 class="h3-row">
-						<span class="collapsible" @click=${()=>this._toggleSection('daily_schedule')}><ha-icon class="chev ${this._isCollapsed('daily_schedule')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('overview.title')}</span>
+						<span class="collapsible" @click=${()=>this._toggleSection('daily_schedule')}><ha-icon class="chev ${this._isCollapsed('daily_schedule')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('section.daily_schedule')}</span>
 					</h3>
 					${this._isCollapsed('daily_schedule')? '' : (()=> {
 						const todaysTasks = this._getTodayAssignedTasks();
@@ -2238,6 +2238,39 @@ class Chores4KidsDevCard extends LitElement {
 								})}
 							</tbody>
 						</table></div>`;
+					})()}
+
+					<hr />
+					<h3 class="h3-row">
+						<span class="collapsible" @click=${()=>this._toggleSection('overview')}><ha-icon class="chev ${this._isCollapsed('overview')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('overview.title')}</span>
+						<button class="btn-ghost icon-btn" title="${this._t('sort.configure')}" @click=${()=> this._sortModalOpen = true}><ha-icon icon="mdi:sort-variant"></ha-icon></button>
+					</h3>
+					${this._isCollapsed('overview')? '' : (()=> {
+						const allAssigned=(this._store.allTasks||[]).filter(t=>!!t.assigned_to);
+						const active=allAssigned.filter(t=>!['approved','awaiting_approval','taken'].includes(this._effectiveStatus(t)));
+						if(!active.length) return html`<i>${this._t('overview.none_active')}</i>`;
+						const sorted=this._sortTasks(active, true);
+						const row=(t)=> {
+							const defaultLabel = this._formatDefaultTaskTimeRange(t);
+							const overrideLabel = this._getOverrideStateLabel(t);
+							return html`<tr>
+								<td data-label="${this._t('ph.title')}">${t.title}${String(t?.bonus_title||'').trim() ? ` • ${this._t('lbl.bonus')}: ${String(t?.bonus_title||'').trim()}` : ''}${t.icon? html` <ha-icon class="inline-ico" icon="${t.icon}"></ha-icon>`:''}</td>
+								${pointsEnabled ? html`<td data-label="${this._t('ph.points')}"><b>${t.points}</b></td>`:''}
+								<td data-label="${this._t('th.categories')}">${(()=>{ const ids=Array.isArray(t.categories)? t.categories:[]; const names=this._orderedCategoryNames(ids); return names.length? names.map(n=> html`<span class='chip'>${n}</span>`): html`—`; })()}</td>
+								<td data-label="${this._t('th.status')}">${this._renderStatusBadge(t)}</td>
+								<td data-label="${this._t('time.default')}">${defaultLabel}</td>
+								<td data-label="${this._t('time.override')}">${overrideLabel}</td>
+								<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; const dt=this._fmtDateTime(ts); return html`${dt.formatted}`; })()}</td>
+								<td data-label="${this._t('th.assign')}">${t.assigned_to_name || this._t('status.unassigned')}</td>
+								<td data-label="${this._t('th.actions')}">${this._renderAssignedLifecycleActions(t)}</td>
+							</tr>`;
+						};
+						return html`
+							<div class="table-wrap"><table class="table-center">
+								<thead><tr><th>${this._t('ph.title')}</th>${pointsEnabled ? html`<th>${this._t('ph.points')}</th>`:''}<th>${this._t('th.categories')}</th><th>${this._t('th.status')}</th><th>${this._t('time.default')}</th><th>${this._t('time.override')}</th><th>${this._t('th.completed')}</th><th>${this._t('th.assign')}</th><th>${this._t('th.actions')}</th></tr></thead>
+								<tbody>${sorted.map(row)}</tbody>
+							</table></div>
+						`;
 					})()}
 
 					<h3 class="h3-row">
