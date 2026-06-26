@@ -26,6 +26,10 @@ The editable working source lives in the main `MagicMirror` project under:
 
 This GitHub repo is the **published release copy** of that working tree.
 
+Release/update steps for this fork are documented in:
+
+- `RELEASING.md`
+
 ## Why This Fork Exists
 
 This fork is used to keep a customized `Chores4Kids` deployment stable for this household, including:

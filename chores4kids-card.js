@@ -81,6 +81,8 @@ const C4K_I18N = {
 			'time.default': 'Default time',
 			'time.override': 'Today override',
 			'time.none': 'No time set',
+			'time.no_override': 'No override',
+			'time.override_active': 'Override: {range}',
 			'btn.save_time': 'Save time',
 			'btn.clear_override': 'Clear override',
 			'section.weekly_tasks': 'Weekly tasks',
@@ -193,6 +195,8 @@ const C4K_I18N = {
 			'lbl.deadline': 'Deadline: {date}',
 			'lbl.early_bonus_by': '+{points} bonus point hvis klaret {date} eller før'
 			,
+			'time.no_override': 'Ingen override',
+			'time.override_active': 'Override: {range}',
 			// Editor UI
 			'editor.mode':'Tilstand','editor.mode_admin':'Forældre','editor.mode_kid':'Barn','editor.mode_overview':'Seneste opgaver',
 			'editor.child_label':'Barn','editor.child_placeholder':'Navn på barn','editor.child_select_prompt':'— Vælg barn —','editor.child_hint':'Ingen børn fundet endnu – skriv navnet manuelt.',
@@ -1504,11 +1508,22 @@ class Chores4KidsDevCard extends LitElement {
 			return /^\d{2}:\d{2}$/.test(text) ? text : '';
 		}catch{ return ''; }
 	}
-	_formatTaskTimeRange(task){
-		const start = this._normalizeTimeValue(task?.override_start_time || task?.default_start_time);
-		const end = this._normalizeTimeValue(task?.override_end_time || task?.default_end_time);
-		if (!start || !end) return this._t('time.none');
+	_formatTimeRange(startValue, endValue, emptyLabel){
+		const start = this._normalizeTimeValue(startValue);
+		const end = this._normalizeTimeValue(endValue);
+		if (!start || !end) return emptyLabel || this._t('time.none');
 		return `${start} - ${end}`;
+	}
+	_formatDefaultTaskTimeRange(task){
+		return this._formatTimeRange(task?.default_start_time, task?.default_end_time, this._t('time.none'));
+	}
+	_formatOverrideTaskTimeRange(task){
+		return this._formatTimeRange(task?.override_start_time, task?.override_end_time, this._t('time.no_override'));
+	}
+	_getOverrideStateLabel(task){
+		const range = this._formatOverrideTaskTimeRange(task);
+		if (range === this._t('time.no_override')) return this._t('time.no_override');
+		return this._t('time.override_active', { range });
 	}
 	_isTaskForDate(task, dateObj){
 		try{
@@ -1523,7 +1538,11 @@ class Chores4KidsDevCard extends LitElement {
 	_getTodayAssignedTasks(){
 		const today = new Date();
 		today.setHours(0,0,0,0);
-		return this._sortTasks((this._store.allTasks||[]).filter((task)=> !!task.assigned_to && this._isTaskForDate(task, today)), true);
+		return this._sortTasks((this._store.allTasks||[]).filter((task)=> {
+			if (!task?.assigned_to) return false;
+			if (!this._isTaskForDate(task, today)) return false;
+			return !['approved','awaiting_approval','taken'].includes(this._effectiveStatus(task));
+		}), true);
 	}
 	_getDailyTimeDraft(task, key, fallback){
 		const draft = this._dailyTimeDrafts?.[task.id]?.[key];
@@ -1845,6 +1864,23 @@ class Chores4KidsDevCard extends LitElement {
 		if (t?.status !== 'approved') return '';
 		return html`<button class="btn-primary" ?disabled=${this._isTaskBusy(t.id)} @click=${()=>this._approveBonusOnly(t)}>${this._t('btn.approve_bonus')}</button>`;
 	}
+	_renderAssignedLifecycleActions(t){
+		if (t.status==="assigned") return html`
+			${this._canManualReassign(t) ? html`<button class="btn-ghost" @click=${()=>this._manualReassign(t)}>${this._t('btn.back')}</button>`:''}
+			<button class="btn-danger" @click=${()=>this._deleteTask(t.id)}>${this._t('btn.delete')}</button>
+		`;
+		if (t.status==="in_progress") return html`
+			<button class="btn-ghost" @click=${()=>this._setStatus(t.id,'awaiting_approval')}>${this._t('btn.awaiting')}</button>
+			<button class="btn-ghost" @click=${()=>this._setStatus(t.id,'assigned')}>${this._t('btn.back')}</button>
+			<button class="btn-danger" @click=${()=>this._deleteTask(t.id)}>${this._t('btn.delete')}</button>
+		`;
+		if (t.status==="awaiting_approval") return this._renderAwaitingActions(t);
+		return html`
+			${this._renderBonusApproveBtn(t)}
+			${this._canManualReassign(t) ? html`<button class="btn-ghost" @click=${()=>this._manualReassign(t)}>${this._t('btn.back')}</button>`:''}
+			<button class="btn-danger" @click=${()=>this._deleteTask(t.id)}>${this._t('btn.delete')}</button>
+		`;
+	}
 	_renderAdmin(){
 		const { children } = this._store; const totalKids = children.length;
 		const pointsEnabled = this._pointsEnabled();
@@ -2154,28 +2190,23 @@ class Chores4KidsDevCard extends LitElement {
 
 					<hr />
 					<h3 class="h3-row">
-						<span class="collapsible" @click=${()=>this._toggleSection('daily_schedule')}><ha-icon class="chev ${this._isCollapsed('daily_schedule')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('section.daily_schedule')}</span>
+						<span class="collapsible" @click=${()=>this._toggleSection('daily_schedule')}><ha-icon class="chev ${this._isCollapsed('daily_schedule')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('overview.title')}</span>
 					</h3>
 					${this._isCollapsed('daily_schedule')? '' : (()=> {
 						const todaysTasks = this._getTodayAssignedTasks();
 						if (!todaysTasks.length) return html`<i>${this._t('overview.none_active')}</i>`;
 						return html`<div class="table-wrap"><table class="table-center">
-							<thead><tr><th>${this._t('ph.title')}</th><th>${this._t('th.assign')}</th><th>${this._t('time.default')}</th><th>${this._t('time.override')}</th><th>${this._t('th.actions')}</th></tr></thead>
+							<thead><tr><th>${this._t('ph.title')}</th><th>${this._t('th.status')}</th><th>${this._t('th.assign')}</th><th>${this._t('time.default')}</th><th>${this._t('time.override')}</th><th>${this._t('th.actions')}</th></tr></thead>
 							<tbody>
 								${todaysTasks.map((task)=> {
 									const child = (this._store.children||[]).find((entry)=> entry.id === task.assigned_to);
 									const childName = child?.name || task.assigned_to_name || '—';
-									const defaultLabel = this._formatTaskTimeRange({
-										default_start_time: task?.default_start_time,
-										default_end_time: task?.default_end_time
-									});
-									const overrideLabel = this._formatTaskTimeRange({
-										override_start_time: task?.override_start_time,
-										override_end_time: task?.override_end_time
-									});
+									const defaultLabel = this._formatDefaultTaskTimeRange(task);
+									const overrideLabel = this._getOverrideStateLabel(task);
 									return html`
 										<tr>
 											<td data-label="${this._t('ph.title')}">${task.title}${task.icon? html` <ha-icon class="inline-ico" icon="${task.icon}"></ha-icon>`:''}</td>
+											<td data-label="${this._t('th.status')}">${this._renderStatusBadge(task)}</td>
 											<td data-label="${this._t('th.assign')}">${childName}</td>
 											<td data-label="${this._t('time.default')}">${defaultLabel}</td>
 											<td data-label="${this._t('time.override')}">
@@ -2192,54 +2223,21 @@ class Chores4KidsDevCard extends LitElement {
 												</div>
 											</td>
 											<td data-label="${this._t('th.actions')}">
-												<button class="btn-primary" ?disabled=${this._isTaskBusy(task.id)} @click=${()=> this._saveDailyTaskTime(task)}>${this._t('btn.save_time')}</button>
-												<button class="btn-ghost" ?disabled=${this._isTaskBusy(task.id)} @click=${()=> this._clearDailyTaskOverride(task)}>${this._t('btn.clear_override')}</button>
+												<div class="awaiting-actions">
+													<div class="awaiting-row">
+														<button class="btn-primary" ?disabled=${this._isTaskBusy(task.id)} @click=${()=> this._saveDailyTaskTime(task)}>${this._t('btn.save_time')}</button>
+														<button class="btn-ghost" ?disabled=${this._isTaskBusy(task.id)} @click=${()=> this._clearDailyTaskOverride(task)}>${this._t('btn.clear_override')}</button>
+													</div>
+													<div class="awaiting-row">
+														${this._renderAssignedLifecycleActions(task)}
+													</div>
+												</div>
 											</td>
 										</tr>
 									`;
 								})}
 							</tbody>
 						</table></div>`;
-					})()}
-
-					<hr />
-					<h3 class="h3-row">
-						<span class="collapsible" @click=${()=>this._toggleSection('overview')}><ha-icon class="chev ${this._isCollapsed('overview')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('overview.title')}</span>
-						<button class="btn-ghost icon-btn" title="${this._t('sort.configure')}" @click=${()=> this._sortModalOpen = true}><ha-icon icon="mdi:sort-variant"></ha-icon></button>
-					</h3>
-					${this._isCollapsed('overview')? '' : (()=>{
-						const allAssigned=(this._store.allTasks||[]).filter(t=>!!t.assigned_to);
-						const active=allAssigned.filter(t=>!['approved','awaiting_approval','taken'].includes(this._effectiveStatus(t)));
-						if(!active.length) return html`<i>${this._t('overview.none_active')}</i>`;
-						const sorted=this._sortTasks(active, true);
-						const top=sorted.slice(0,3); const pending=allAssigned.filter(t=>t.status==='awaiting_approval').length;
-						const row=(t)=> html`<tr>
-							<td data-label="${this._t('ph.title')}">${t.title}${String(t?.bonus_title||'').trim() ? ` • ${this._t('lbl.bonus')}: ${String(t?.bonus_title||'').trim()}` : ''}${t.icon? html` <ha-icon class="inline-ico" icon="${t.icon}"></ha-icon>`:''}</td>
-							${pointsEnabled ? html`<td data-label="${this._t('ph.points')}"><b>${t.points}</b></td>`:''}
-							<td data-label="${this._t('th.categories')}">${(()=>{ const ids=Array.isArray(t.categories)? t.categories:[]; const names=this._orderedCategoryNames(ids); return names.length? names.map(n=> html`<span class='chip'>${n}</span>`): html`—`; })()}</td>
-							<td data-label="${this._t('th.status')}">${this._renderStatusBadge(t)}</td>
-							<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; const dt=this._fmtDateTime(ts); return html`${dt.formatted}`; })()}</td>
-							<td data-label="${this._t('th.assign')}">${t.assigned_to_name || this._t('status.unassigned')}</td>
-							<td data-label="${this._t('th.actions')}">
-								${t.status==="assigned" ? html`
-									${this._canManualReassign(t) ? html`<button class="btn-ghost" @click=${()=>this._manualReassign(t)}>${this._t('btn.back')}</button>`:''}
-									<button class="btn-danger" @click=${()=>this._deleteTask(t.id)}>${this._t('btn.delete')}</button>
-								`: t.status==="in_progress" ? html`
-									<button class="btn-ghost" @click=${()=>this._setStatus(t.id,'awaiting_approval')}>${this._t('btn.awaiting')}</button>
-									<button class="btn-ghost" @click=${()=>this._setStatus(t.id,'assigned')}>${this._t('btn.back')}</button>
-									<button class="btn-danger" @click=${()=>this._deleteTask(t.id)}>${this._t('btn.delete')}</button>
-								`: t.status==="awaiting_approval" ? html`
-									${this._renderAwaitingActions(t)}
-								`: html`${this._renderBonusApproveBtn(t)}${this._canManualReassign(t) ? html`<button class="btn-ghost" @click=${()=>this._manualReassign(t)}>${this._t('btn.back')}</button>`:''}<button class="btn-danger" @click=${()=>this._deleteTask(t.id)}>${this._t('btn.delete')}</button>`}
-							</td>
-						</tr>`;
-						return html`
-							<div class="table-wrap"><table class="table-center table-fixed">${this._renderAssignedFinishedColgroup()}
-								<thead><tr><th>${this._t('ph.title')}</th>${pointsEnabled ? html`<th>${this._t('ph.points')}</th>`:''}<th>${this._t('th.categories')}</th><th>${this._t('th.status')}</th><th>${this._t('th.completed')}</th><th>${this._t('th.assign')}</th><th>${this._t('th.actions')}</th></tr></thead>
-								<tbody>${top.map(row)}</tbody>
-							</table></div>
-							<div class="row" style="justify-content:flex-end;">${active.length>3? html`<button class="btn-primary" @click=${()=>this._tasksModalOpen=true}>${this._t('overview.show_all',{pending})}</button>`:''}</div>
-						`;
 					})()}
 
 					<h3 class="h3-row">
