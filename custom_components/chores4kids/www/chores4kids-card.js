@@ -2217,59 +2217,6 @@ class Chores4KidsDevCard extends LitElement {
 						</tbody>
 						</table></div>`}
 
-					/*
-					<hr />
-					<h3 class="h3-row">
-						<span class="collapsible" @click=${()=>this._toggleSection('daily_schedule')}><ha-icon class="chev ${this._isCollapsed('daily_schedule')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('section.daily_schedule')}</span>
-					</h3>
-					${this._isCollapsed('daily_schedule')? '' : (()=> {
-						const todaysTasks = this._getTodayAssignedTasks();
-						if (!todaysTasks.length) return html`<i>${this._t('overview.none_active')}</i>`;
-						return html`<div class="table-wrap"><table class="table-center">
-							<thead><tr><th>${this._t('ph.title')}</th><th>${this._t('th.status')}</th><th>${this._t('th.assign')}</th><th>${this._t('time.default')}</th><th>${this._t('time.override')}</th><th>${this._t('th.actions')}</th></tr></thead>
-							<tbody>
-								${todaysTasks.map((task)=> {
-									const child = (this._store.children||[]).find((entry)=> entry.id === task.assigned_to);
-									const childName = child?.name || task.assigned_to_name || '—';
-									const defaultLabel = this._formatDefaultTaskTimeRange(task);
-									const overrideLabel = this._getOverrideStateLabel(task);
-									return html`
-										<tr>
-											<td data-label="${this._t('ph.title')}">${task.title}${task.icon? html` <ha-icon class="inline-ico" icon="${task.icon}"></ha-icon>`:''}</td>
-											<td data-label="${this._t('th.status')}">${this._renderStatusBadge(task)}</td>
-											<td data-label="${this._t('th.assign')}">${childName}</td>
-											<td data-label="${this._t('time.default')}">${defaultLabel}</td>
-											<td data-label="${this._t('time.override')}">
-												<div style="display:flex; flex-direction:column; gap:6px;">
-													<div style="font-size:.9rem; color: var(--secondary-text-color);">${overrideLabel}</div>
-													<div class="row fields" style="margin:0;">
-														<div class="form-field">
-															<input type="time" .value=${this._getDailyTimeDraft(task, 'start', task?.override_start_time || task?.default_start_time)} @input=${(e)=> this._setDailyTimeDraft(task.id, 'start', e.target.value)} />
-														</div>
-														<div class="form-field">
-															<input type="time" .value=${this._getDailyTimeDraft(task, 'end', task?.override_end_time || task?.default_end_time)} @input=${(e)=> this._setDailyTimeDraft(task.id, 'end', e.target.value)} />
-														</div>
-													</div>
-												</div>
-											</td>
-											<td data-label="${this._t('th.actions')}">
-												<div class="awaiting-actions">
-													<div class="awaiting-row">
-														<button class="btn-primary" ?disabled=${this._isTaskBusy(task.id)} @click=${()=> this._saveDailyTaskTime(task)}>${this._t('btn.save_time')}</button>
-														<button class="btn-ghost" ?disabled=${this._isTaskBusy(task.id)} @click=${()=> this._clearDailyTaskOverride(task)}>${this._t('btn.clear_override')}</button>
-													</div>
-													<div class="awaiting-row">
-														${this._renderAssignedLifecycleActions(task)}
-													</div>
-												</div>
-											</td>
-										</tr>
-									`;
-								})}
-							</tbody>
-						</table></div>`;
-					})()}
-					*/
 
 					<hr />
 					<h3 class="h3-row">
