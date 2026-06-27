@@ -1464,6 +1464,19 @@ class Chores4KidsDevCard extends LitElement {
 		}
 	}
 
+	_formatShortDateTime(ts){
+		try{
+			const d = ts ? new Date(ts) : null;
+			if (!d || isNaN(d.getTime())) return '—';
+			const loc = this._locale();
+			const weekday = new Intl.DateTimeFormat(loc, { weekday: 'short' }).format(d);
+			const time = new Intl.DateTimeFormat(loc, { hour:'numeric', minute:'2-digit', hour12: true }).format(d);
+			return `${weekday} ${time}`;
+		}catch{
+			return String(ts||'—');
+		}
+	}
+
 	_parseDueToDate(due){
 		try{
 			if (!due) return null;
@@ -2290,7 +2303,6 @@ class Chores4KidsDevCard extends LitElement {
 										</div>
 									</div>
 								</td>
-								<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; const dt=this._fmtDateTime(ts); return html`${dt.formatted}`; })()}</td>
 								<td data-label="${this._t('th.assign')}">${t.assigned_to_name || this._t('status.unassigned')}</td>
 								<td data-label="${this._t('th.actions')}">
 									<div class="awaiting-actions">
@@ -2307,7 +2319,7 @@ class Chores4KidsDevCard extends LitElement {
 						};
 						return html`
 							<div class="table-wrap"><table class="table-center">
-								<thead><tr><th>${this._t('ph.title')}</th>${pointsEnabled ? html`<th>${this._t('ph.points')}</th>`:''}<th>${this._t('th.categories')}</th><th>${this._t('th.status')}</th><th>${this._t('time.default')}</th><th>${this._t('time.override')}</th><th>${this._t('th.completed')}</th><th>${this._t('th.assign')}</th><th>${this._t('th.actions')}</th></tr></thead>
+								<thead><tr><th>${this._t('ph.title')}</th>${pointsEnabled ? html`<th>${this._t('ph.points')}</th>`:''}<th>${this._t('th.categories')}</th><th>${this._t('th.status')}</th><th>${this._t('time.default')}</th><th>${this._t('time.override')}</th><th>${this._t('th.assign')}</th><th>${this._t('th.actions')}</th></tr></thead>
 								<tbody>${sorted.map(row)}</tbody>
 							</table></div>
 						`;
@@ -2326,7 +2338,7 @@ class Chores4KidsDevCard extends LitElement {
 							${pointsEnabled ? html`<td data-label="${this._t('ph.points')}"><b>${t.points}</b></td>`:''}
 							<td data-label="${this._t('th.categories')}">${(()=>{ const ids=Array.isArray(t.categories)? t.categories:[]; const names=this._orderedCategoryNames(ids); return names.length? names.map(n=> html`<span class='chip'>${n}</span>`): html`—`; })()}</td>
 							<td data-label="${this._t('th.status')}">${this._renderStatusBadge(t)}</td>
-							<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; const dt=this._fmtDateTime(ts); return html`${dt.formatted}`; })()}</td>
+							<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; return html`${this._formatShortDateTime(ts)}`; })()}</td>
 							<td data-label="${this._t('th.assign')}">${t.assigned_to_name || this._t('status.unassigned')}</td>
 							<td data-label="${this._t('th.actions')}">
 								${this._renderAwaitingActions(t)}
@@ -2353,7 +2365,7 @@ class Chores4KidsDevCard extends LitElement {
 							${pointsEnabled ? html`<td data-label="${this._t('ph.points')}"><b>${t.points}</b></td>`:''}
 							<td data-label="${this._t('th.categories')}">${(()=>{ const ids=Array.isArray(t.categories)? t.categories:[]; const names=this._orderedCategoryNames(ids); return names.length? names.map(n=> html`<span class='chip'>${n}</span>`): html`—`; })()}</td>
 								<td data-label="${this._t('th.status')}">${this._renderStatusBadge(t)}</td>
-							<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; const dt=this._fmtDateTime(ts); return html`${dt.formatted}`; })()}</td>
+							<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; return html`${this._formatShortDateTime(ts)}`; })()}</td>
 							<td data-label="${this._t('th.assign')}">${t.assigned_to_name || this._t('status.unassigned')}</td>
 							<td data-label="${this._t('th.actions')}">
 								${t.status==="awaiting_approval" ? html`
@@ -2475,7 +2487,7 @@ class Chores4KidsDevCard extends LitElement {
 								${pointsEnabled ? html`<td data-label="${this._t('ph.points')}"><b>${t.points}</b></td>`:''}
 								<td data-label="${this._t('th.categories')}">${(()=>{ const ids=Array.isArray(t.categories)? t.categories:[]; const names=this._orderedCategoryNames(ids); return names.length? names.map(n=> html`<span class='chip'>${n}</span>`): html`—`; })()}</td>
 								<td data-label="${this._t('th.status')}">${this._renderStatusBadge(t)}</td>
-								<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; const dt=this._fmtDateTime(ts); return html`${dt.formatted}`; })()}</td>
+								<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; return html`${this._formatShortDateTime(ts)}`; })()}</td>
 								<td data-label="${this._t('th.assign')}">${t.assigned_to_name || this._t('status.unassigned')}</td>
 								<td data-label="${this._t('th.actions')}">
 									${t.status==="assigned" ? html`${this._canManualReassign(t) ? html`<button class="btn-ghost" @click=${()=>this._manualReassign(t)}>${this._t('btn.back')}</button>`:''}<button class="btn-danger" @click=${()=>this._deleteTask(t.id)}>${this._t('btn.delete')}</button>`
