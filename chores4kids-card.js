@@ -1508,11 +1508,27 @@ class Chores4KidsDevCard extends LitElement {
 			return /^\d{2}:\d{2}$/.test(text) ? text : '';
 		}catch{ return ''; }
 	}
+	_formatDisplayTimeValue(value){
+		const normalized = this._normalizeTimeValue(value);
+		if (!normalized) return '';
+		try{
+			const [hourText, minuteText] = normalized.split(':');
+			let hour = Number(hourText);
+			const minute = Number(minuteText);
+			if (!Number.isFinite(hour) || !Number.isFinite(minute)) return normalized;
+			const suffix = hour >= 12 ? 'PM' : 'AM';
+			hour = hour % 12;
+			if (hour === 0) hour = 12;
+			return `${hour}:${String(minute).padStart(2,'0')} ${suffix}`;
+		}catch{
+			return normalized;
+		}
+	}
 	_formatTimeRange(startValue, endValue, emptyLabel){
 		const start = this._normalizeTimeValue(startValue);
 		const end = this._normalizeTimeValue(endValue);
 		if (!start || !end) return emptyLabel || this._t('time.none');
-		return `${start} - ${end}`;
+		return `${this._formatDisplayTimeValue(start)} - ${this._formatDisplayTimeValue(end)}`;
 	}
 	_formatDefaultTaskTimeRange(task){
 		return this._formatTimeRange(task?.default_start_time, task?.default_end_time, this._t('time.none'));
@@ -1864,9 +1880,6 @@ class Chores4KidsDevCard extends LitElement {
 		if (t?.status !== 'approved') return '';
 		return html`<button class="btn-primary" ?disabled=${this._isTaskBusy(t.id)} @click=${()=>this._approveBonusOnly(t)}>${this._t('btn.approve_bonus')}</button>`;
 	}
-	_renderReleaseMarker(){
-		return html`<div style="margin:0 0 12px; padding:8px 10px; border-radius:10px; border:1px solid var(--warning-color, #ff9800); background:color-mix(in srgb, var(--warning-color, #ff9800) 14%, transparent); color:var(--primary-text-color); font-size:.85rem; font-weight:700;">TEST BUILD v0.1.8</div>`;
-	}
 	_renderAssignedLifecycleActions(t){
 		if (t.status==="assigned") return html`
 			${this._canManualReassign(t) ? html`<button class="btn-ghost" @click=${()=>this._manualReassign(t)}>${this._t('btn.back')}</button>`:''}
@@ -1891,7 +1904,6 @@ class Chores4KidsDevCard extends LitElement {
 		return html`
 			<ha-card header="${this._t('card.admin_title')}">
 				<div class="card-content">
-					${this._renderReleaseMarker()}
 					<div class="row">
 						<input placeholder="${this._t('input.new_child_name')}" .value=${this._name||''} @input=${(e)=>this._name=e.target.value} />
 						<button class="btn-primary" @click=${this._addChild}>${this._t('btn.add_child')}</button>
@@ -2192,6 +2204,7 @@ class Chores4KidsDevCard extends LitElement {
 						</tbody>
 						</table></div>`}
 
+					/*
 					<hr />
 					<h3 class="h3-row">
 						<span class="collapsible" @click=${()=>this._toggleSection('daily_schedule')}><ha-icon class="chev ${this._isCollapsed('daily_schedule')?'rot':''}" icon="mdi:chevron-down"></ha-icon>${this._t('section.daily_schedule')}</span>
@@ -2243,6 +2256,7 @@ class Chores4KidsDevCard extends LitElement {
 							</tbody>
 						</table></div>`;
 					})()}
+					*/
 
 					<hr />
 					<h3 class="h3-row">
@@ -2263,10 +2277,32 @@ class Chores4KidsDevCard extends LitElement {
 								<td data-label="${this._t('th.categories')}">${(()=>{ const ids=Array.isArray(t.categories)? t.categories:[]; const names=this._orderedCategoryNames(ids); return names.length? names.map(n=> html`<span class='chip'>${n}</span>`): html`—`; })()}</td>
 								<td data-label="${this._t('th.status')}">${this._renderStatusBadge(t)}</td>
 								<td data-label="${this._t('time.default')}">${defaultLabel}</td>
-								<td data-label="${this._t('time.override')}">${overrideLabel}</td>
+								<td data-label="${this._t('time.override')}">
+									<div style="display:flex; flex-direction:column; gap:6px;">
+										<div style="font-size:.9rem; color: var(--secondary-text-color);">${overrideLabel}</div>
+										<div class="row fields" style="margin:0;">
+											<div class="form-field">
+												<input type="time" .value=${this._getDailyTimeDraft(t, 'start', t?.override_start_time || t?.default_start_time)} @input=${(e)=> this._setDailyTimeDraft(t.id, 'start', e.target.value)} />
+											</div>
+											<div class="form-field">
+												<input type="time" .value=${this._getDailyTimeDraft(t, 'end', t?.override_end_time || t?.default_end_time)} @input=${(e)=> this._setDailyTimeDraft(t.id, 'end', e.target.value)} />
+											</div>
+										</div>
+									</div>
+								</td>
 								<td data-label="${this._t('th.completed')}">${(()=>{ const ts=this._displayedTsFor(t); if(!ts) return html`—`; const dt=this._fmtDateTime(ts); return html`${dt.formatted}`; })()}</td>
 								<td data-label="${this._t('th.assign')}">${t.assigned_to_name || this._t('status.unassigned')}</td>
-								<td data-label="${this._t('th.actions')}">${this._renderAssignedLifecycleActions(t)}</td>
+								<td data-label="${this._t('th.actions')}">
+									<div class="awaiting-actions">
+										<div class="awaiting-row">
+											<button class="btn-primary" ?disabled=${this._isTaskBusy(t.id)} @click=${()=> this._saveDailyTaskTime(t)}>${this._t('btn.save_time')}</button>
+											<button class="btn-ghost" ?disabled=${this._isTaskBusy(t.id)} @click=${()=> this._clearDailyTaskOverride(t)}>${this._t('btn.clear_override')}</button>
+										</div>
+										<div class="awaiting-row">
+											${this._renderAssignedLifecycleActions(t)}
+										</div>
+									</div>
+								</td>
 							</tr>`;
 						};
 						return html`
@@ -2367,7 +2403,6 @@ class Chores4KidsDevCard extends LitElement {
 		return html`
 			<ha-card header="${this._t('overview.title')}">
 				<div class="card-content">
-					${this._renderReleaseMarker()}
 					${all.length===0 ? html`<i>${this._t('overview.none')}</i>` : (()=>{
 						const parse=(x)=>{ try{ return x? new Date(x).getTime():0; }catch{return 0;} };
 						const sorted=this._sortTasks(all, true);
@@ -3080,7 +3115,6 @@ class Chores4KidsDevCard extends LitElement {
 		return html`
 			<ha-card header="${s.attributes.name}">
 				<div class="card-content">
-					${this._renderReleaseMarker()}
 					<div class="header-row">
 						${pointsEnabled ? html`<span class="header-points">${s.state} ${this._t('lbl.points')}</span>`:''}
 						${pointsEnabled ? html`<button class="btn-primary" @click=${()=>{ this._shopOpen = true; this.requestUpdate(); }}>${this._t('shop.title')}</button>`:''}
