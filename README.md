@@ -16,15 +16,15 @@ This fork exists so Home Assistant can install and update a customized household
 
 - not the original upstream `qlerup/chores4kids` project
 - not a generic public support repo for all users
-- not the place where routine day-to-day feature work starts
 
 ## Source of Truth
 
-The editable working source lives in the main `MagicMirror` project under:
+This repository is the editable working source **and** the published release source.
 
-- `MagicMirror/home-assistant/vendor/chores4kids/`
+- Local working copy: `C:\Users\alxwh\Documents\chores4kids`
+- GitHub/HACS repository: `TheeCyclops/chores4kids`
 
-This GitHub repo is the **published release copy** of that working tree.
+Make routine code changes, commits, tags, and releases here. The old `MagicMirror/home-assistant/vendor/chores4kids/` checkout is not authoritative and must not be used for publishing.
 
 Release/update steps for this fork are documented in:
 
@@ -46,12 +46,14 @@ Expected flow:
 
 1. A new version is prepared from the local working copy.
 2. That version is published here as a tagged GitHub release.
-3. Home Assistant updates through HACS.
-4. The bundled card resource stays aligned with the installed backend version.
+3. Home Assistant updates the integration through HACS.
+4. On setup, the integration copies its bundled card JavaScript to `/config/www/chores4kids-card.js` and registers it as a Lovelace resource.
 
-Typical card resource path after HACS install:
+Expected card resource:
 
-- `/hacsfiles/chores4kids/chores4kids-card.js`
+- `/local/chores4kids-card.js?v=<cache-token>` (JavaScript module)
+
+`/local/` is correct for this fork. The version query string is a cache-buster generated from the deployed file, so it will change after card updates. Do not add a second `/hacsfiles/chores4kids/chores4kids-card.js` resource.
 
 ## Upstream Credit
 
@@ -79,3 +81,7 @@ This fork may include:
 If you are looking at this repo on GitHub and wondering whether it is the official `Chores4Kids` project, it is not.
 
 This is a custom fork and release source.
+
+## Agent and maintenance context
+
+Start with [AGENTS.md](AGENTS.md) and the [context index](notes/context/README.md). Current implementation, live verification gaps, recovery guidance, and release boundaries are recorded there.
