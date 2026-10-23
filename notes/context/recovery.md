@@ -14,7 +14,7 @@ Home Assistant's storage key is `chores4kids` in the source's `Store` usage. Ver
 
 Secure backup coverage must include Home Assistant configuration/storage, integration entries, registries, chores/points/rewards/history/settings, HACS metadata, bundled-card registration, uploaded images/sounds under `www`, and secrets. Also account for the Lenovo VM/host configuration needed to restore the service. A source checkout or a copy of `custom_components` is insufficient.
 
-Current backup freshness, destination, encryption/recovery keys, retention/off-host copy, and restore test are unknown. Use a separately authorized task to inventory and create a complete backup, secure recovery material, and test restoration in an isolated compatible environment before Lenovo upgrade or destructive migration. Do not post backups or keys in chat/Git.
+Current backup freshness, destination, encryption/recovery keys, retention/off-host copy, and restore test are unknown. As of 2026-10-22, no backup destination is available; the user is searching for a server/RAID array that can host backups and other services. Use a separately authorized task to inventory and create a complete backup, secure recovery material, and test restoration in an isolated compatible environment before Lenovo upgrade or destructive migration. Do not post backups or keys in chat/Git.
 
 ## Rollback compatibility
 
