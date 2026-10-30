@@ -25,3 +25,7 @@ Validation: five in-memory rollover regression tests and Python AST parsing; the
 ## 2026-10-30 release v0.1.13
 
 Prepared household release `v0.1.13` for rollover recovery. Manifest/tag sequence checked against actual fork releases; `v0.1.12` was latest. Root and bundled card hashes match and card code is unchanged. No storage schema migration. Five rollover regressions, Python syntax, and documentation checks passed; GitHub HACS Validation and hassfest passed for `ebf240b`. Published [v0.1.13](https://github.com/TheeCyclops/chores4kids/releases/tag/v0.1.13) at release commit `6f83f32`. HACS Validation, hassfest, ZIP packaging and release automation succeeded. Downloaded ZIP inspected in memory: manifest is 0.1.13, storage has the rollover guard, integration has the five-minute watchdog, and the bundled card is present. Home Assistant installation, restart, and midnight acceptance remain pending user action.
+
+## 2026-10-30 user-reported installation acceptance
+
+User confirms the installed version displays 0.1.13 and all chores are showing after the update. This is user-reported live recovery; points, restart completion, and an overnight rollover were not independently verified. User will observe the next rollover and return to this chat if changes are needed.
