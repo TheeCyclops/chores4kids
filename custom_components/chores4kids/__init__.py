@@ -7,7 +7,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
+from datetime import timedelta
 from homeassistant.util import dt as dt_util
 
 import logging
@@ -866,13 +867,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.services.async_register(DOMAIN, "purge_orphans", svc_purge_orphans)
 
-    # Schedule midnight rollover and run once on startup
+    # The watchdog repairs missed/failed midnight runs. Successful days are cheap no-ops.
     async def _midnight_cb(now):
-        await store.daily_rollover()
+        try:
+            await store.daily_rollover()
+        except Exception:
+            return  # Store logs the failure; the watchdog retries without marking success.
         async_dispatcher_send(hass, SIGNAL_DATA_UPDATED)
 
-    async_track_time_change(hass, _midnight_cb, hour=0, minute=0, second=0)
-    hass.async_create_task(store.daily_rollover())
+    entry.async_on_unload(async_track_time_change(hass, _midnight_cb, hour=0, minute=0, second=0))
+    entry.async_on_unload(async_track_time_interval(hass, _midnight_cb, timedelta(minutes=5)))
+    entry.async_on_unload(hass.async_create_task(_midnight_cb(None)).cancel)
 
     return True
 

@@ -1,9 +1,10 @@
 # Chores4Kids issues and verification gaps
 
-Updated 2026-10-22. No new backend-specific reproduced defect was established by these handoffs. Missing validation is not proof of failure.
+Updated 2026-10-30. User reports missing assignments recovered after an HA host reboot; exact cause is unconfirmed. Missing validation is not proof of failure.
 
 | ID | Status / evidence | Verification and acceptance |
 | --- | --- | --- |
+| C4K-B01 | Pending live confirmation: missing assignments recovered after reboot on 2026-10-30; rollover had only midnight/startup triggers | Guarded five-minute retry, serialization, diagnostics and same-day duplicate protection implemented; five local regression tests pass. Release/install and actual midnight observation remain separate work |
 | C4K-V01 | User confirms the household installation is custom-fork `v0.1.12`; active resource provenance is not independently inspected | Verify one active `/local/` card resource without exposing credentials if a live acceptance pass is needed |
 | C4K-V02 | Timing/repeat/rollover coverage incomplete despite historical working controls; no current failure reported | Optional confidence pass: create/update defaults and overrides, generated assignments, scheduled-day rollover, timezone boundaries and restart persistence against the source contract |
 | C4K-V03 | Completion/points/rewards working per user handoff; complete regression coverage absent; no current failure reported | Optional confidence pass: exercise configured approval/skip-approval, rejection, purchase, insufficient balance, duplicate requests and persisted accounting with authorized test records |

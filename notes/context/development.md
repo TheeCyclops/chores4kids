@@ -8,7 +8,7 @@ For backend/card changes inspect `__init__.py`, `services.yaml`, `sensor.py`, `s
 
 ## Local checks
 
-No dedicated repository test suite was found in the current file inventory. Do not claim full validation from syntax checks. For Python changes, parse changed source with Python's `ast.parse` (does not import HA or mutate storage); use a compatible HA test environment for behavioral tests. Validate changed JSON/YAML and inspect registered service/schema consistency. Card changes need a browser/Lovelace test for the actual interaction; passing JavaScript syntax alone is insufficient.
+Rollover regression tests run with `python -m unittest discover -s tests -v`; they use in-memory HA storage/clock stubs, not a full HA runtime. Do not claim full validation from syntax checks. For Python changes, parse changed source with Python's `ast.parse` (does not import HA or mutate storage); use a compatible HA test environment for behavioral tests. Validate changed JSON/YAML and inspect registered service/schema consistency. Card changes need a browser/Lovelace test for the actual interaction; passing JavaScript syntax alone is insufficient.
 
 Existing `.github/workflows/hassfest.yml` and `hacs-validation.yml` provide repository validation on push. These do not exercise household workflows. Report CI separately from local checks and live acceptance.
 

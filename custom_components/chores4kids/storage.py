@@ -7,10 +7,13 @@ from homeassistant.util import dt as dt_util
 from uuid import uuid4
 import os
 import asyncio
+import logging
 import unicodedata
 import re
 
 from .const import STORAGE_KEY, STORAGE_VERSION
+
+_LOGGER = logging.getLogger(__name__)
 
 STATUS_ASSIGNED = "assigned"
 STATUS_IN_PROGRESS = "in_progress"
@@ -120,6 +123,8 @@ class Task:
 
 class KidsChoresStore:
     def __init__(self, hass: HomeAssistant):
+        self._rollover_lock = asyncio.Lock()
+        self._last_rollover_date = None
         self.hass = hass
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self.children: List[Child] = []
@@ -1417,6 +1422,22 @@ class KidsChoresStore:
         return f"{hour:02d}:{minute:02d}"
 
     async def daily_rollover(self):
+        """Run once per local day; failed attempts remain eligible for retry."""
+        async with self._rollover_lock:
+            today = dt_util.now().date()
+            if self._last_rollover_date == today:
+                return False
+            _LOGGER.info("Daily rollover starting for %s (%d tasks)", today, len(self.tasks))
+            try:
+                await self._daily_rollover()
+            except Exception:
+                _LOGGER.exception("Daily rollover failed for %s; next watchdog tick will retry", today)
+                raise
+            self._last_rollover_date = today
+            _LOGGER.info("Daily rollover finished for %s (%d tasks)", today, len(self.tasks))
+            return True
+
+    async def _daily_rollover(self):
         """Midnight housekeeping: start fresh each day.
 
                 - Remove tasks from previous days unless explicitly configured to carry.
@@ -1440,6 +1461,9 @@ class KidsChoresStore:
             # Backwards compat: if no mode but repeat_days exists, treat as repeat.
             is_scheduled = bool(getattr(t, "repeat_days", None)) or (mode in ("weekly", "monthly", "repeat"))
             if not is_scheduled:
+                continue
+
+            if t.assigned_to:
                 continue
 
             # targets can be multiple children
@@ -1498,14 +1522,17 @@ class KidsChoresStore:
             is_older = (created_date is None) or (created_date < today)
             if is_older:
                 if getattr(t, "status", None) == STATUS_AWAITING:
+                    _LOGGER.debug("Rollover keeping task %s: pending approval", t.id)
                     kept.append(t)
                     continue
                 if bool(getattr(t, "persist_until_completed", False)) and getattr(t, "status", None) != STATUS_APPROVED:
                     from datetime import datetime as _dt, timezone as _tz
                     t.created = _dt.now(_tz.utc).isoformat()
                     t.carried_over = True
+                    _LOGGER.debug("Rollover carrying task %s: unfinished persistent task", t.id)
                     kept.append(t)
                 else:
+                    _LOGGER.debug("Rollover removing task %s: expired assignment", t.id)
                     continue
             else:
                 kept.append(t)
@@ -1515,7 +1542,12 @@ class KidsChoresStore:
         # Prefer using repeat_template_id to detect existing active instances (more robust than title/date).
         def _active_instance_exists(template_id: str, child_id: str) -> bool:
             try:
+                if any(x.repeat_template_id == template_id and x.assigned_to == child_id
+                       and _local_created_date(x) == today for x in self.tasks):
+                    _LOGGER.debug("Rollover skipping template %s: today already assigned", template_id)
+                    return True
                 if template_id and self._active_repeat_instance_exists(template_id, child_id):
+                    _LOGGER.debug("Rollover skipping template %s: active assignment retained", template_id)
                     return True
             except Exception:
                 pass
@@ -1553,7 +1585,7 @@ class KidsChoresStore:
                     for target in targets:
                         if not target:
                             continue
-                        if self._active_repeat_instance_exists(tpl_id, target):
+                        if _active_instance_exists(tpl_id, target):
                             continue
                         await self.add_task(
                             title=tpl["title"],
@@ -1588,6 +1620,10 @@ class KidsChoresStore:
             elif mode == "monthly":
                 should_spawn = int(today.day) == 1
 
+            if not should_spawn:
+                _LOGGER.debug("Rollover skipping template %s: not scheduled today", tpl.get("id"))
+            if not targets:
+                _LOGGER.debug("Rollover skipping template %s: no children configured", tpl.get("id"))
             if should_spawn:
                 tpl_id = str(tpl.get("id") or "")
                 for target in targets:
