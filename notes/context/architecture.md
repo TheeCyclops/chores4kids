@@ -1,6 +1,6 @@
 # Chores4Kids architecture and contract
 
-Source inspected 2026-09-12 at `12e1233`, manifest `0.1.12`; this is not a fresh live installed-version check.
+Source inspected 2026-10-30 at release commit `6f83f32`, manifest/tag `0.1.13`; the user later confirmed the installation displays `0.1.13`, but this is not an independently inspected live resource/version check.
 
 ## Source and delivery
 
