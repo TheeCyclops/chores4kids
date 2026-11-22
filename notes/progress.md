@@ -1,10 +1,10 @@
 # Chores4Kids progress
 
-Updated 2026-11-22. Released baseline remains `6f83f32` (`v0.1.13`). The opt-in workflow-v2 implementation below is a source checkpoint, not a new release or installed version. The user-reported installed custom-fork version is `0.1.13`; the active runtime card resource was not independently inspected.
+Updated 2026-11-22. Published baseline is `cd9aa2d` (`v0.1.14`), including opt-in workflow-v2. HACS Validation, hassfest and release ZIP packaging pass. The last user-reported installed custom-fork version remains `0.1.13`; installation/activation of the new release is not claimed.
 
 ## Current state
 
-- 2026-11-22 release preparation: manifest/tag `0.1.14` / `v0.1.14` for the opt-in workflow foundation; see [release notes](releases/v0.1.14.md). Publication and ZIP verification are separate checks; no installation, live balance capture, activation or restart is included.
+- 2026-11-22 release published: [v0.1.14](https://github.com/TheeCyclops/chores4kids/releases/tag/v0.1.14) at `cd9aa2d`, with `chores4kids.zip` attached. Downloaded ZIP inspected in memory: manifest 0.1.14, workflow modules and bundled card match tested source after JSON-format/newline normalization. HACS Validation, hassfest, ZIP packaging and release automation all passed. See [release notes](releases/v0.1.14.md). No installation, live balance capture, activation or restart performed.
 
 - 2026-11-22 implementation: opt-in chore library/occurrences, calendar and completion recurrence, overdue takeover with parent approval, ordered personal routines with immediate step points and parent-approved on-time bonus. Protected activation creates/read-verifies a private complete-store backup and balance snapshot; legacy chores become read-only without deleting records. Root/bundled card provide editors and retain rewards. See [workflow API and activation](WORKFLOW_V2.md). No live balance capture, activation, release, deployment or restart performed. Local tests and delivery results are recorded in the task completion; installed HA and MagicMirror-v2 acceptance remain pending.
 
