@@ -4,6 +4,8 @@ Updated 2026-11-22. Released baseline remains `6f83f32` (`v0.1.13`). The opt-in 
 
 ## Current state
 
+- 2026-11-22 release preparation: manifest/tag `0.1.14` / `v0.1.14` for the opt-in workflow foundation; see [release notes](releases/v0.1.14.md). Publication and ZIP verification are separate checks; no installation, live balance capture, activation or restart is included.
+
 - 2026-11-22 implementation: opt-in chore library/occurrences, calendar and completion recurrence, overdue takeover with parent approval, ordered personal routines with immediate step points and parent-approved on-time bonus. Protected activation creates/read-verifies a private complete-store backup and balance snapshot; legacy chores become read-only without deleting records. Root/bundled card provide editors and retain rewards. See [workflow API and activation](WORKFLOW_V2.md). No live balance capture, activation, release, deployment or restart performed. Local tests and delivery results are recorded in the task completion; installed HA and MagicMirror-v2 acceptance remain pending.
 
 - Standalone editable/release source and `/local/` bundled-card guidance are reconciled. The pre-existing staged README correction was retained in this documentation work.
