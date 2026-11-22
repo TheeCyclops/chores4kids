@@ -1,8 +1,10 @@
 # Chores4Kids progress
 
-Updated 2026-11-08. Source release baseline: `6f83f32` (`v0.1.13`) on `main`; current documentation checkpoint: `2da1738`. Manifest and user-reported installed custom-fork version: `0.1.13`. Local custom tags `v0.1.0` through `v0.1.13` exist alongside inherited upstream tags. The published ZIP contained the bundled card; the active runtime resource was not independently inspected.
+Updated 2026-11-22. Released baseline remains `6f83f32` (`v0.1.13`). The opt-in workflow-v2 implementation below is a source checkpoint, not a new release or installed version. The user-reported installed custom-fork version is `0.1.13`; the active runtime card resource was not independently inspected.
 
 ## Current state
+
+- 2026-11-22 implementation: opt-in chore library/occurrences, calendar and completion recurrence, overdue takeover with parent approval, ordered personal routines with immediate step points and parent-approved on-time bonus. Protected activation creates/read-verifies a private complete-store backup and balance snapshot; legacy chores become read-only without deleting records. Root/bundled card provide editors and retain rewards. See [workflow API and activation](WORKFLOW_V2.md). No live balance capture, activation, release, deployment or restart performed. Local tests and delivery results are recorded in the task completion; installed HA and MagicMirror-v2 acceptance remain pending.
 
 - Standalone editable/release source and `/local/` bundled-card guidance are reconciled. The pre-existing staged README correction was retained in this documentation work.
 - Backend implements native timing, repeat/rollover, statuses, points, shop/rewards and storage; inspect the [architecture](context/architecture.md) for source routing.
@@ -12,9 +14,19 @@ Updated 2026-11-08. Source release baseline: `6f83f32` (`v0.1.13`) on `main`; cu
 
 ## Documentation checkpoint
 
-Agent context, roadmap, issues, recovery, and release boundaries are documented. The 2026-10-30 rollover fix was released as `v0.1.13`, and the user reported that version installed with chores restored. No newer code, HA state, release, or installation change is claimed in this review. Documentation commits are source checkpoints only; find them with `git log --oneline -- AGENTS.md notes README.md RELEASING.md`.
+Workflow-v2 local validation (2026-11-22): 46 in-memory backend tests pass,
+including backup integrity, admin boundary, restart, failed-save rollback,
+concurrent awards/purchases, overdue takeover and routine bonus accounting.
+Actual bundled-card Chrome checks at 1080x1500 and 390x844 pass for quarterly
+save/retry, routine ordering/save, step transport without fabricated balance
+updates, rewards, archive and parent-only controls, with no page/console errors.
+Browser plugin unavailable; existing Playwright/Chrome used. Python/JS syntax,
+YAML, identical root/bundled card copies, changed Markdown and whitespace pass.
+These are synthetic local checks; no installed HA/NUC acceptance is claimed.
 
-Next Chores page work should start from a concrete feature prompt covering shared points and parent unlock. Update this file with checks, commit references, pushed status, and remaining live acceptance. Backup work remains blocked until a server/RAID destination is available.
+Agent context, roadmap, issues, recovery, and release boundaries are documented. The 2026-10-30 rollover fix was released as `v0.1.13`, and the user reported that version installed with chores restored. Workflow-v2 source changes are recorded above; no newer HA installation or activation is claimed. Documentation commits are source checkpoints only; find them with `git log --oneline -- AGENTS.md notes README.md RELEASING.md`.
+
+Next Chores page work should connect MagicMirror to the workflow-v2 sensor/services and parent authorization before any installed activation. Shared reward points remain a separate undecided feature. Update this file with checks, delivery and live acceptance; a complete off-host backup destination remains unresolved.
 
 ## 2026-10-30 rollover recovery
 

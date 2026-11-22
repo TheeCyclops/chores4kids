@@ -1763,7 +1763,93 @@ class Chores4KidsDevCard extends LitElement {
 
 	// ===== RENDER =====
 	render(){
+		const workflow = Object.values(this.hass?.states || {}).find(s => s.attributes?.schema_version === 2 && s.attributes?.definitions && s.attributes?.runs);
+		if (workflow?.attributes?.active) return this._renderWorkflow(workflow.attributes);
 		return this._mode==='admin' ? this._renderAdmin() : (this._mode==='kid' ? this._renderChild() : this._renderOverviewOnly());
+	}
+
+	async _workflowAction(action, body){
+		if (this._wfBusy) return false;
+		const signature = JSON.stringify([action, body]);
+		if (this._wfPending?.signature !== signature) this._wfPending = { signature, request_id: crypto.randomUUID() };
+		this._wfBusy = true; this._wfError = ''; this.requestUpdate();
+		try {
+			await this.hass.callService('chores4kids', 'workflow_action', { action, payload: { ...body, request_id: this._wfPending.request_id } });
+			this._wfPending = null; return true;
+		} catch (error) { this._wfError = error.message || 'Could not save. Try again.'; return false; }
+		finally { this._wfBusy = false; this.requestUpdate(); }
+	}
+
+	_renderWorkflow(w){
+		const children = this._store.children;
+		const admin = this._mode === 'admin' && this.hass?.user?.is_admin;
+		const person = this._mode === 'kid' ? this._findChildSensor()?.attributes?.child_id : (this._wfPerson || children[0]?.id);
+		const name = id => children.find(c => c.id === id)?.name || 'Anyone';
+		const tab = this._wfTab || 'Today';
+		const tabs = admin ? ['Today', 'Library', 'Routines', 'Approvals', 'Rewards', 'Archive'] : ['Today', 'Routines', 'Rewards'];
+		const runs = Object.values(w.runs).filter(r => !r.closed && r.child_id === person);
+		return html`<ha-card header="Chores and routines"><div class="card-content workflow">
+			<style>.workflow form{display:flex;flex-wrap:wrap;gap:12px;margin-block:16px;padding:16px;border:1px solid var(--divider-color,#ddd);border-radius:12px}.workflow label{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px}.workflow form>label{flex:1 1 220px;flex-direction:column;align-items:stretch}.workflow form>label:has(input[type=checkbox]){flex:0 0 auto;flex-direction:row;align-items:center}.workflow form>p,.workflow form>.row{flex-basis:100%}.workflow input,.workflow select,.workflow textarea{min-height:40px;max-width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--divider-color,#ddd);border-radius:8px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#222)}.workflow button{min-height:40px;margin:4px}.workflow .section{margin-block:12px}.workflow input[type=checkbox]{min-height:24px}.workflow .row{flex-wrap:wrap}.workflow [role=alert]{color:var(--error-color,#b91c1c)}</style>
+			<nav class="row">${tabs.map(t => html`<button class=${tab === t ? 'btn-primary' : 'btn-ghost'} @click=${()=>{this._wfTab=t;this._wfEdit=null;this._wfRoutine=null;this.requestUpdate();}}>${t}</button>`)}</nav>
+			${this._mode !== 'kid' ? html`<label>Acting as <select @change=${e=>{this._wfPerson=e.target.value;this.requestUpdate();}}>${children.map(c=>html`<option value=${c.id} ?selected=${c.id===person}>${c.name} (${c.points} points)</option>`)}</select></label>` : ''}
+			${this._wfError ? html`<p role="alert">${this._wfError}</p>` : ''}
+			${tab === 'Today' ? html`<h3>All available chores</h3><p>Assigned chores become available to everyone after their due time. All chore completions need approval.</p>
+				${(w.eligible || []).map(o=>html`<div class="section"><b>${o.title}</b> · ${o.points} points<br>Due ${new Date(o.due).toLocaleString()} · ${name(o.assignee)} ${o.overdue ? ' · Overdue' : ''}
+				<button class="btn-primary" ?disabled=${this._wfBusy || !person || (!o.available_to_anyone && o.assignee !== person)} @click=${()=>this._workflowAction('submit_chore',{id:o.id,child_id:person})}>Complete as ${name(person)}</button>
+				${admin ? html`<label>Change this occurrence only <select @change=${e=>this._workflowAction('edit_occurrence',{id:o.id,revision:o.revision,assignee:e.target.value||null})}><option value="">Anyone</option>${children.map(c=>html`<option value=${c.id} ?selected=${c.id===o.assignee}>${c.name}</option>`)}</select></label>` : ''}</div>`)}
+				${Object.values(w.occurrences).filter(o=>o.status!=='open' && (o.original_assignee===person || o.completed_by===person)).map(o=>html`<p>${o.title} · ${o.status==='approved'?'Completed':'Awaiting approval'} by ${name(o.completed_by)}</p>`)}` : ''}
+			${tab === 'Today' || tab === 'Routines' ? html`<h3>Personal routines</h3>${runs.map(r=>html`<section class="section"><h4>${r.title}</h4><p>Finish by ${new Date(r.finish_at).toLocaleTimeString()} · ${Object.keys(r.checked).length}/${r.steps.length} steps · Bonus ${r.bonus} points (${r.bonus_status.replaceAll('_',' ')})</p>
+				${r.steps.map(s=>html`<p><button class="btn-ghost" ?disabled=${this._wfBusy || !!r.checked[s.id]} @click=${()=>this._workflowAction('check_step',{run_id:r.id,step_id:s.id})}>${r.checked[s.id] ? 'Done' : 'Check off'}</button> ${s.title} · ${s.points} points</p>`)}</section>`)}` : ''}
+			${tab === 'Library' && admin ? html`<h3>Chore library</h3><button @click=${()=>{this._wfEdit={};this.requestUpdate();}}>Add chore</button><p>Editing a library chore changes future occurrences only.</p>
+				${Object.values(w.definitions).map(d=>html`<p>${d.title} · ${d.points} points · ${d.enabled?'Active':'Paused'} <button @click=${()=>{this._wfEdit=structuredClone(d);this.requestUpdate();}}>Edit future schedule</button></p>`)}
+				${this._wfEdit ? this._renderWorkflowChoreEditor(this._wfEdit, children) : ''}` : ''}
+			${tab === 'Routines' && admin ? html`<h3>Routine library</h3><button @click=${()=>{this._wfRoutine={title:'',people:[],weekdays:[0,1,2,3,4],start_time:'06:30',finish_time:'07:40',bonus:5,steps:[]};this.requestUpdate();}}>Add routine</button>
+				${Object.values(w.routines).map(r=>html`<p>${r.title} <button @click=${()=>{this._wfRoutine=structuredClone(r);this.requestUpdate();}}>Edit routine</button></p>`)}
+				${this._wfRoutine ? this._renderWorkflowRoutineEditor(this._wfRoutine, children) : ''}` : ''}
+			${tab === 'Approvals' && admin ? html`<h3>Chore approvals</h3>${Object.values(w.occurrences).filter(o=>o.status==='awaiting_approval').map(o=>html`<p>${o.title} · Done by ${name(o.completed_by)} · Originally ${name(o.original_assignee)} · ${o.points} points
+				<button ?disabled=${this._wfBusy} @click=${()=>this._workflowAction('review_chore',{id:o.id,decision:'approve'})}>Approve</button><button ?disabled=${this._wfBusy} @click=${()=>this._workflowAction('review_chore',{id:o.id,decision:'reject'})}>Reject</button></p>`)}
+				<h3>Routine bonuses</h3>${Object.values(w.runs).filter(r=>r.bonus_status==='awaiting_approval').map(r=>html`<p>${r.title} · ${name(r.child_id)} · ${new Date(r.starts_at).toLocaleDateString()} · ${r.bonus} bonus points
+				<button ?disabled=${this._wfBusy} @click=${()=>this._workflowAction('review_routine',{run_id:r.id,decision:'approve'})}>Approve bonus</button><button ?disabled=${this._wfBusy} @click=${()=>this._workflowAction('review_routine',{run_id:r.id,decision:'reject'})}>Reject bonus</button></p>`)}` : ''}
+			${tab === 'Rewards' ? html`<h3>Rewards</h3>${this._store.items.filter(i=>i.active).map(i=>html`<p>${i.title} · ${i.price} points <button ?disabled=${!person || Number(children.find(c=>c.id===person)?.points)<Number(i.price) || this._buyingItemId===i.id} @click=${()=>this._buy(i,person)}>Buy</button></p>`)}
+				${admin ? html`<button @click=${()=>{this._shopModalOpen=true;this.requestUpdate();}}>Manage rewards</button>${this._renderShopModal()}` : ''}` : ''}
+			${tab === 'Archive' && admin ? html`<h3>Archived chores (read only)</h3>${Object.values(this.hass.states).flatMap(s=>s.attributes?.archived_tasks||[]).map(t=>html`<p>${t.title} · ${t.status} · ${name(t.assigned_to)} · ${t.points} points</p>`)}` : ''}
+		</div></ha-card>`;
+	}
+
+	_renderWorkflowChoreEditor(d, children){
+		const s=d.schedule||{};
+		return html`<form class="section" @submit=${async e=>{e.preventDefault();const f=new FormData(e.target);const result=await this._workflowAction('save_chore',{
+			...(d.id?{id:d.id,revision:d.revision}:{}),title:f.get('title'),description:f.get('description'),points:Number(f.get('points')),assignee:f.get('assignee')||null,
+			enabled:f.get('enabled')==='on',categories:d.categories||[],schedule:{anchor:f.get('anchor'),due_time:f.get('due_time'),basis:f.get('basis'),unit:f.get('unit'),every:Number(f.get('every')),lead_days:Number(f.get('lead_days')),once:f.get('once')==='on',weekdays:f.getAll('weekday').map(Number)}});if(result){this._wfEdit=null;this.requestUpdate();}}}>
+			<label>Name <input name="title" required maxlength="1000" .value=${d.title||''}></label>
+			<label>Instructions <textarea name="description" .value=${d.description||''}></textarea></label>
+			<label>Points <input name="points" type="number" min="0" max="100000" required .value=${String(d.points??1)}></label>
+			<label>Usual owner <select name="assignee"><option value="" ?selected=${!d.assignee}>Anyone</option>${children.map(c=>html`<option value=${c.id} ?selected=${c.id===d.assignee}>${c.name}</option>`)}</select></label>
+			<label>First due date <input name="anchor" type="date" required .value=${s.anchor||''}></label><label>Due time <input name="due_time" type="time" required .value=${s.due_time||'18:00'}></label>
+			<label>Open this many days early <input name="lead_days" type="number" min="0" max="3650" .value=${String(s.lead_days||0)}></label>
+			<label>Repeat based on <select name="basis"><option value="calendar" ?selected=${s.basis!=='completion'}>Calendar schedule</option><option value="completion" ?selected=${s.basis==='completion'}>Last completion</option></select></label>
+			<label>Every <input name="every" type="number" min="1" max="1200" required .value=${String(s.every||1)}><select name="unit">${['days','weeks','months'].map(u=>html`<option value=${u} ?selected=${(s.unit||'days')===u}>${u}</option>`)}</select></label>
+			<p>Quarterly: every 3 months. For selected weekdays use calendar, every 1 week.</p>
+			${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day,i)=>html`<label><input name="weekday" type="checkbox" value=${i} ?checked=${s.weekdays?.includes(i)}>${day}</label>`)}
+			<label><input name="once" type="checkbox" ?checked=${!!s.once}>One-time chore</label><label><input name="enabled" type="checkbox" ?checked=${d.enabled!==false}>Schedule enabled</label>
+			<button type="submit" ?disabled=${this._wfBusy}>Save future schedule</button><button type="button" @click=${()=>{this._wfEdit=null;this.requestUpdate();}}>Cancel</button>
+		</form>`;
+	}
+
+	_renderWorkflowRoutineEditor(r, children){
+		const move=(index,offset)=>{const target=index+offset;if(target>=0&&target<r.steps.length){[r.steps[index],r.steps[target]]=[r.steps[target],r.steps[index]];this.requestUpdate();}};
+		return html`<form class="section" @submit=${async e=>{e.preventDefault();const f=new FormData(e.target);if(await this._workflowAction('save_routine',{...r,title:f.get('title'),people:f.getAll('person'),weekdays:f.getAll('day').map(Number),start_time:f.get('start_time'),finish_time:f.get('finish_time'),bonus:Number(f.get('bonus')),enabled:f.get('enabled')==='on'})){this._wfRoutine=null;this.requestUpdate();}}}>
+			<label>Name <input name="title" required .value=${r.title} @input=${e=>r.title=e.target.value}></label>
+			${children.map(c=>html`<label><input name="person" type="checkbox" value=${c.id} ?checked=${r.people.includes(c.id)} @change=${e=>{r.people=e.target.checked?[...r.people,c.id]:r.people.filter(id=>id!==c.id);}}>${c.name}</label>`)}
+			${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day,i)=>html`<label><input name="day" type="checkbox" value=${i} ?checked=${r.weekdays.includes(i)} @change=${e=>{r.weekdays=e.target.checked?[...r.weekdays,i]:r.weekdays.filter(v=>v!==i);}}>${day}</label>`)}
+			<label>Start <input name="start_time" type="time" required .value=${r.start_time} @input=${e=>r.start_time=e.target.value}></label><label>Finish by <input name="finish_time" type="time" required .value=${r.finish_time} @input=${e=>r.finish_time=e.target.value}></label>
+			<label>Extra full-routine bonus <input name="bonus" type="number" min="1" max="100000" required .value=${String(r.bonus)} @input=${e=>r.bonus=Number(e.target.value)}></label>
+			<p>Step points are immediate. The on-time completion bonus requires parent approval.</p>
+			${r.steps.map((s,i)=>html`<div class="row"><label>Step ${i+1}<input required .value=${s.title} @input=${e=>s.title=e.target.value}></label><label>Points <input type="number" min="0" max="100000" required .value=${String(s.points)} @input=${e=>s.points=Number(e.target.value)}></label><label>Minutes <input type="number" min="0" max="1440" .value=${String(s.duration_minutes||0)} @input=${e=>s.duration_minutes=Number(e.target.value)}></label><button type="button" aria-label="Move step up" ?disabled=${i===0} @click=${()=>move(i,-1)}>Up</button><button type="button" aria-label="Move step down" ?disabled=${i===r.steps.length-1} @click=${()=>move(i,1)}>Down</button><button type="button" @click=${()=>{r.steps.splice(i,1);this.requestUpdate();}}>Remove</button></div>`)}
+			<button type="button" @click=${()=>{r.steps.push({id:crypto.randomUUID(),title:'',points:1,duration_minutes:0});this.requestUpdate();}}>Add step</button>
+			<label>Add from chore library <select @change=${e=>{const w=Object.values(this.hass.states).find(s=>s.attributes?.schema_version===2)?.attributes;const d=w?.definitions?.[e.target.value];if(d){r.steps.push({id:crypto.randomUUID(),chore_id:d.id,title:d.title,points:d.points,duration_minutes:0});this.requestUpdate();}e.target.value='';}}><option value="">Choose a chore</option>${Object.values(Object.values(this.hass.states).find(s=>s.attributes?.schema_version===2)?.attributes?.definitions||{}).map(d=>html`<option value=${d.id}>${d.title}</option>`)}</select></label>
+			<label><input name="enabled" type="checkbox" ?checked=${r.enabled!==false}>Routine enabled</label><button type="submit" ?disabled=${this._wfBusy}>Save routine</button><button type="button" @click=${()=>{this._wfRoutine=null;this.requestUpdate();}}>Cancel</button>
+		</form>`;
 	}
 
 	_isCollapsed(key){ try{ return !!(this._collapsed && this._collapsed[key]); }catch{ return false; } }

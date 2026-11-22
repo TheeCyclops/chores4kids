@@ -66,6 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         if ui_sensor is None:
             ui_sensor = Chores4KidsUiSensor(store)
             async_add_entities([ui_sensor])
+            async_add_entities([Chores4KidsWorkflowSensor(store)])
         # Remove sensors for deleted children (runtime removal + registry/device cleanup)
         current_ids = {c.id for c in store.children}
         removed_ids = set(entities.keys()) - current_ids
@@ -144,7 +145,7 @@ class KidsChoresPointsSensor(SensorEntity):
     @property
     def extra_state_attributes(self):
         ch = self._child
-        tasks = [t for t in self._store.tasks if t.assigned_to == ch.id]
+        tasks = [] if self._store.workflow.data['active'] else [t for t in self._store.tasks if t.assigned_to == ch.id]
         counts = {
             "assigned_count": sum(1 for t in tasks if t.status == "assigned"),
             "in_progress_count": sum(1 for t in tasks if t.status == "in_progress"),
@@ -272,7 +273,30 @@ class Chores4KidsAllTasksSensor(SensorEntity):
             }
             for cat in getattr(self._store, "categories", [])
         ]
-        return {"tasks": tasks, "categories": categories}
+        active = self._store.workflow.data['active']
+        return {"tasks": [] if active else tasks, "categories": categories,
+                "legacy_archived": active, "archived_tasks": tasks if active else []}
+
+
+class Chores4KidsWorkflowSensor(SensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = 'Chores4Kids Workflow'
+    _attr_unique_id = 'chores4kids_workflow_v2'
+
+    def __init__(self, store):
+        self._store = store
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_DATA_UPDATED,
+            lambda: self.async_schedule_update_ha_state(True)))
+
+    @property
+    def native_value(self):
+        return 'active' if self._store.workflow.data['active'] else 'inactive'
+
+    @property
+    def extra_state_attributes(self):
+        return self._store.workflow.snapshot()
 
 
 class Chores4KidsUiSensor(SensorEntity):

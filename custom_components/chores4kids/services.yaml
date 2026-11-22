@@ -391,6 +391,34 @@ delete_uploaded_file:
       description: Filename only (no paths), e.g. completion.mp3
       example: "completion.mp3"
 
+prepare_workflow:
+  name: Prepare protected workflow backup
+  description: Admin only. Save and read back a private complete storage backup and balance snapshot before explicit activation. Returns backup identifiers, never balances.
+
+workflow_action:
+  name: Chore library and routines action
+  description: Version-two backend API. Parent administration requires an authenticated HA administrator. All payloads require a unique request_id. See notes/WORKFLOW_V2.md.
+  fields:
+    action:
+      required: true
+      selector:
+        select:
+          options:
+            - activate
+            - save_chore
+            - edit_occurrence
+            - submit_chore
+            - review_chore
+            - save_routine
+            - check_step
+            - review_routine
+            - adjust_points
+            - tick
+    payload:
+      required: true
+      selector:
+        object:
+
 delete_completion_sound:
   name: Delete completion sound
   description: Deletes completion sound files in /config/www/chores4kids (completion.* and legacy completion_<timestamp>.*).

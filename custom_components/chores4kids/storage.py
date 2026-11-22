@@ -12,6 +12,7 @@ import unicodedata
 import re
 
 from .const import STORAGE_KEY, STORAGE_VERSION
+from .workflow import Workflow, WriteLock, locked_store_method
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,6 +124,8 @@ class Task:
 
 class KidsChoresStore:
     def __init__(self, hass: HomeAssistant):
+        self.workflow_lock = WriteLock()
+        self.workflow = Workflow(self)
         self._rollover_lock = asyncio.Lock()
         self._last_rollover_date = None
         self.hass = hass
@@ -145,6 +148,11 @@ class KidsChoresStore:
         data = await self._store.async_load()
         if not data:
             return
+        workflow = data.get('workflow')
+        if workflow is not None:
+            if not isinstance(workflow, dict) or workflow.get('schema_version') != 2:
+                raise ValueError('unsupported_workflow_schema')
+            self.workflow.data = workflow
         self.children = [Child(**c) for c in data.get("children", [])]
         self.categories = [Category(**c) for c in data.get("categories", [])]
         # Migrate tasks: if early bonus was configured before the explicit toggle existed,
@@ -219,7 +227,7 @@ class KidsChoresStore:
         except Exception:
             self._earned_backfill_done = False
 
-        if not self._earned_backfill_done:
+        if not self._earned_backfill_done and not self.workflow.data['active']:
             try:
                 self._backfill_earned_points()
                 self._earned_backfill_done = True
@@ -242,6 +250,7 @@ class KidsChoresStore:
             "notify_services": list(getattr(self, "notify_services", []) or []),
             "notify_service_settings": dict(getattr(self, "notify_service_settings", {}) or {}),
             "earned_backfill_done": bool(getattr(self, "_earned_backfill_done", False)),
+            "workflow": self.workflow.data,
         })
 
     def _backfill_earned_points(self) -> None:
@@ -1423,6 +1432,9 @@ class KidsChoresStore:
 
     async def daily_rollover(self):
         """Run once per local day; failed attempts remain eligible for retry."""
+        if self.workflow.data['active']:
+            await self.workflow.execute('tick', {'request_id': str(uuid4())})
+            return True
         async with self._rollover_lock:
             today = dt_util.now().date()
             if self._last_rollover_date == today:
@@ -1933,4 +1945,7 @@ class Purchase:
     # Optional denormalized for convenience (filled when saving)
     child_name: str = ""
 
-# End of storage
+# Serialize public store mutations with workflow accounting and reward purchases.
+for _name, _method in list(vars(KidsChoresStore).items()):
+    if asyncio.iscoroutinefunction(_method) and not _name.startswith('_') and _name not in ('async_load', 'async_save'):
+        setattr(KidsChoresStore, _name, locked_store_method(_method))

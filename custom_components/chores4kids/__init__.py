@@ -28,6 +28,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["store"] = store
+    from .workflow_services import register_workflow_services
+    register_workflow_services(hass, store)
 
     # Ensure Lovelace card JS is available and resource is registered (best-effort)
     try:
@@ -898,4 +900,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception:
                 _LOGGER.debug("%s: iOS notify action unsubscribe failed", DOMAIN, exc_info=True)
         hass.data.pop(DOMAIN, None)
+        hass.services.async_remove(DOMAIN, 'prepare_workflow')
+        hass.services.async_remove(DOMAIN, 'workflow_action')
     return unload_ok
